@@ -1,0 +1,46 @@
+version: '3.4'
+
+networks:
+  app-dev:
+    driver: bridge 
+
+services:
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx/app.conf:/etc/nginx/conf.d/app.template
+    ports:
+      - '${NGINX_PORT}:${NGINX_PORT}'
+    command: 'bash -c "cat /etc/nginx/conf.d/app.template >
+              /etc/nginx/conf.d/default.conf && nginx -g ''daemon off;''"'
+
+  app:
+    image: app:latest
+    depends_on:
+      - "db"
+    build:
+      context: .
+      dockerfile: Dockerfile-netcore
+    ports:
+      - "8000:80"     
+    environment:
+      - POSTGRES_ENDPOINT=Host=db;Port=${DATABASE_PORT};Database=${DATABASE_NAME};Username=${DATABASE_USER};Password=${DATABASE_PASS}
+    networks:
+      - app-dev  
+  
+  db:
+    image: postgres:latest
+    ports:
+      - '${DATABASE_PORT}:${DATABASE_PORT}'
+    restart: always
+    volumes:
+      - db_volume:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_USER=${DATABASE_USER}
+      - POSTGRES_PASSWORD=${DATABASE_PASS}
+      - POSTGRES_DB=${DATABASE_NAME}
+    networks:
+      - app-dev
+volumes:
+  db_volume:
